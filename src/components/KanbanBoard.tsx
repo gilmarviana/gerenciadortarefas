@@ -1,275 +1,292 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import {
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Task, TaskColumn } from '@/types';
-import TaskCard from './TaskCard';
 import { PlusIcon, EllipsisVerticalIcon } from '@heroicons/react/24/outline';
-import { createSupabaseClient } from '@/lib/supabase';
 
-interface KanbanBoardProps {
-  projectId: string;
-  onTaskClick?: (task: Task) => void;
+// Componente TaskCard com dnd-kit
+function TaskCard({ task }: { task: Task }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id: task.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'urgent': return 'border-red-500';
+      case 'high': return 'border-orange-500';
+      case 'medium': return 'border-yellow-500';
+      case 'low': return 'border-green-500';
+      default: return 'border-gray-300';
+    }
+  };
+
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case 'bug': return 'bg-red-100 text-red-800';
+      case 'feature': return 'bg-blue-100 text-blue-800';
+      case 'improvement': return 'bg-green-100 text-green-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className={`bg-white rounded-lg border-l-4 ${getPriorityColor(task.priority)} p-4 mb-3 shadow-sm hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing`}
+    >
+      <div className="flex justify-between items-start mb-2">
+        <h4 className="font-medium text-gray-900 text-sm line-clamp-2">{task.title}</h4>
+        <button className="text-gray-400 hover:text-gray-600">
+          <EllipsisVerticalIcon className="h-4 w-4" />
+        </button>
+      </div>
+      
+      {task.description && (
+        <p className="text-gray-600 text-xs mb-3 line-clamp-3">{task.description}</p>
+      )}
+      
+      <div className="flex justify-between items-center">
+        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTypeColor(task.type)}`}>
+          {task.type}
+        </span>
+        {task.dueDate && (
+          <span className="text-xs text-gray-500">
+            {new Date(task.dueDate).toLocaleDateString('pt-BR')}
+          </span>
+        )}
+      </div>
+    </div>
+  );
 }
 
-export default function KanbanBoard({ projectId, onTaskClick }: KanbanBoardProps) {
-  const [columns, setColumns] = useState<TaskColumn[]>([]);
-  const [tasks, setTasks] = useState<{ [key: string]: Task[] }>({});
-  const [loading, setLoading] = useState(true);
-  const supabase = createSupabaseClient();
-
-  useEffect(() => {
-    loadData();
-  }, [projectId]);
-
-  const loadData = async () => {
-    setLoading(true);
-    
-    // Load columns
-    const { data: columnsData } = await supabase
-      .from('task_columns')
-      .select('*')
-      .eq('project_id', projectId)
-      .order('position');
-
-    if (columnsData) {
-      setColumns(columnsData);
-    }
-
-    // Load tasks
-    const { data: tasksData } = await supabase
-      .from('tasks')
-      .select(`
-        *,
-        category:task_categories(*),
-        assigned_user:users(*)
-      `)
-      .eq('project_id', projectId)
-      .order('position');
-
-    if (tasksData) {
-      const tasksByColumn: { [key: string]: Task[] } = {};
-      
-      tasksData.forEach((task) => {
-        if (!tasksByColumn[task.column_id]) {
-          tasksByColumn[task.column_id] = [];
+// Componente principal do KanbanBoard
+export default function KanbanBoard() {
+  const [columns, setColumns] = useState<TaskColumn[]>([
+    {
+      id: 'todo',
+      title: 'A Fazer',
+      tasks: [
+        {
+          id: '1',
+          title: 'Implementar autenticação',
+          description: 'Criar sistema de login e registro de usuários',
+          status: 'todo',
+          priority: 'high',
+          type: 'feature',
+          dueDate: '2024-02-15',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        },
+        {
+          id: '2',
+          title: 'Corrigir bug no dashboard',
+          description: 'Gráficos não estão carregando corretamente',
+          status: 'todo',
+          priority: 'urgent',
+          type: 'bug',
+          dueDate: '2024-02-10',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
         }
-        tasksByColumn[task.column_id].push(task);
-      });
-
-      setTasks(tasksByColumn);
+      ]
+    },
+    {
+      id: 'in-progress',
+      title: 'Em Andamento',
+      tasks: [
+        {
+          id: '3',
+          title: 'Desenvolver API de relatórios',
+          description: 'Criar endpoints para geração de relatórios',
+          status: 'in-progress',
+          priority: 'medium',
+          type: 'feature',
+          dueDate: '2024-02-20',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      ]
+    },
+    {
+      id: 'review',
+      title: 'Em Revisão',
+      tasks: [
+        {
+          id: '4',
+          title: 'Otimizar performance',
+          description: 'Melhorar tempo de carregamento das páginas',
+          status: 'review',
+          priority: 'medium',
+          type: 'improvement',
+          dueDate: '2024-02-18',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      ]
+    },
+    {
+      id: 'done',
+      title: 'Concluído',
+      tasks: [
+        {
+          id: '5',
+          title: 'Setup inicial do projeto',
+          description: 'Configurar estrutura básica e dependências',
+          status: 'done',
+          priority: 'high',
+          type: 'feature',
+          dueDate: '2024-02-05',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      ]
     }
+  ]);
 
-    setLoading(false);
-  };
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
-  const onDragEnd = async (result: DropResult) => {
-    const { destination, source, draggableId } = result;
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
 
-    if (!destination) return;
+    if (!over) return;
 
-    if (
-      destination.droppableId === source.droppableId &&
-      destination.index === source.index
-    ) {
-      return;
-    }
+    const activeId = active.id;
+    const overId = over.id;
 
-    const sourceColumnId = source.droppableId;
-    const destColumnId = destination.droppableId;
-    const taskId = draggableId;
-
-    // Update local state immediately for better UX
-    const newTasks = { ...tasks };
-    const sourceColumn = [...(newTasks[sourceColumnId] || [])];
-    const destColumn = sourceColumnId === destColumnId 
-      ? sourceColumn 
-      : [...(newTasks[destColumnId] || [])];
-
-    // Remove task from source
-    const [movedTask] = sourceColumn.splice(source.index, 1);
-
-    // Add task to destination
-    destColumn.splice(destination.index, 0, movedTask);
-
-    // Update state
-    newTasks[sourceColumnId] = sourceColumn;
-    newTasks[destColumnId] = destColumn;
-    setTasks(newTasks);
-
-    // Update task in database
-    const { error } = await supabase
-      .from('tasks')
-      .update({
-        column_id: destColumnId,
-        position: destination.index,
-      })
-      .eq('id', taskId);
-
-    if (error) {
-      console.error('Error updating task:', error);
-      // Revert on error
-      loadData();
-    } else {
-      // Update positions for all tasks in affected columns
-      await updateTaskPositions(sourceColumnId, sourceColumn);
-      if (sourceColumnId !== destColumnId) {
-        await updateTaskPositions(destColumnId, destColumn);
-      }
-    }
-  };
-
-  const updateTaskPositions = async (columnId: string, columnTasks: Task[]) => {
-    const updates = columnTasks.map((task, index) => ({
-      id: task.id,
-      position: index,
-    }));
-
-    for (const update of updates) {
-      await supabase
-        .from('tasks')
-        .update({ position: update.position })
-        .eq('id', update.id);
-    }
-  };
-
-  const addColumn = async () => {
-    const name = prompt('Nome da coluna:');
-    if (!name) return;
-
-    const { error } = await supabase
-      .from('task_columns')
-      .insert({
-        name,
-        project_id: projectId,
-        position: columns.length,
-        color: '#3b82f6',
-      });
-
-    if (!error) {
-      loadData();
-    }
-  };
-
-  const deleteColumn = async (columnId: string) => {
-    if (!confirm('Tem certeza que deseja excluir esta coluna? Todas as tarefas serão movidas para a primeira coluna.')) {
-      return;
-    }
-
-    // Move tasks to first column
-    if (tasks[columnId]?.length > 0) {
-      const firstColumn = columns[0];
-      if (firstColumn) {
-        await supabase
-          .from('tasks')
-          .update({ column_id: firstColumn.id })
-          .eq('column_id', columnId);
-      }
-    }
-
-    const { error } = await supabase
-      .from('task_columns')
-      .delete()
-      .eq('id', columnId);
-
-    if (!error) {
-      loadData();
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-      </div>
+    // Find which column contains the active item
+    const activeColumn = columns.find(col => 
+      col.tasks.some(task => task.id === activeId)
     );
+    
+    // Find which column contains the over item
+    const overColumn = columns.find(col => 
+      col.tasks.some(task => task.id === overId) || col.id === overId
+    );
+
+    if (!activeColumn || !overColumn) return;
+
+    if (activeColumn.id !== overColumn.id) {
+      // Moving between columns
+      setColumns(prev => {
+        const newColumns = [...prev];
+        const activeColumnIndex = newColumns.findIndex(col => col.id === activeColumn.id);
+        const overColumnIndex = newColumns.findIndex(col => col.id === overColumn.id);
+        
+        const activeTask = newColumns[activeColumnIndex].tasks.find(task => task.id === activeId);
+        if (!activeTask) return prev;
+
+        // Remove from active column
+        newColumns[activeColumnIndex].tasks = newColumns[activeColumnIndex].tasks.filter(
+          task => task.id !== activeId
+        );
+
+        // Add to over column
+        newColumns[overColumnIndex].tasks.push({
+          ...activeTask,
+          status: overColumn.id as any
+        });
+
+        return newColumns;
+      });
+    } else {
+      // Moving within the same column
+      setColumns(prev => {
+        const newColumns = [...prev];
+        const columnIndex = newColumns.findIndex(col => col.id === activeColumn.id);
+        const oldIndex = newColumns[columnIndex].tasks.findIndex(task => task.id === activeId);
+        const newIndex = newColumns[columnIndex].tasks.findIndex(task => task.id === overId);
+
+        newColumns[columnIndex].tasks = arrayMove(
+          newColumns[columnIndex].tasks,
+          oldIndex,
+          newIndex
+        );
+
+        return newColumns;
+      });
+    }
   }
 
   return (
-    <div className="h-full overflow-x-auto">
-      <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex space-x-4 h-full pb-4" style={{ minWidth: 'max-content' }}>
-          {columns.map((column) => (
-            <div key={column.id} className="flex-shrink-0 w-80">
-              <div className="bg-gray-50 rounded-lg p-4 h-full">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center">
-                    <div 
-                      className="w-3 h-3 rounded-full mr-2"
-                      style={{ backgroundColor: column.color }}
-                    />
-                    <h3 className="font-medium text-gray-900">{column.name}</h3>
-                    <span className="ml-2 text-sm text-gray-500">
-                      {tasks[column.id]?.length || 0}
-                    </span>
-                  </div>
-                  
-                  <div className="relative group">
-                    <button className="p-1 text-gray-400 hover:text-gray-600">
-                      <EllipsisVerticalIcon className="w-4 h-4" />
-                    </button>
-                    <div className="absolute right-0 mt-1 w-32 bg-white rounded-md shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10">
-                      <button
-                        onClick={() => deleteColumn(column.id)}
-                        className="block w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                      >
-                        Excluir
-                      </button>
-                    </div>
-                  </div>
-                </div>
+    <div className="h-full bg-gray-50 p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Quadro Kanban</h1>
+        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2">
+          <PlusIcon className="h-5 w-5" />
+          Nova Tarefa
+        </button>
+      </div>
 
-                <Droppable droppableId={column.id}>
-                  {(provided, snapshot) => (
-                    <div
-                      ref={provided.innerRef}
-                      {...provided.droppableProps}
-                      className={`min-h-[200px] ${
-                        snapshot.isDraggingOver ? 'bg-blue-50' : ''
-                      } transition-colors duration-200`}
-                    >
-                      {(tasks[column.id] || []).map((task, index) => (
-                        <Draggable
-                          key={task.id}
-                          draggableId={task.id}
-                          index={index}
-                        >
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              {...provided.dragHandleProps}
-                              onClick={() => onTaskClick?.(task)}
-                            >
-                              <TaskCard
-                                task={task}
-                                isDragging={snapshot.isDragging}
-                                onUpdate={loadData}
-                              />
-                            </div>
-                          )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-                    </div>
-                  )}
-                </Droppable>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {columns.map(column => (
+            <div key={column.id} className="bg-gray-100 rounded-lg p-4">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="font-semibold text-gray-800">{column.title}</h2>
+                <span className="bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded-full">
+                  {column.tasks.length}
+                </span>
               </div>
+              
+              <SortableContext 
+                items={column.tasks.map(task => task.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-3">
+                  {column.tasks.map(task => (
+                    <TaskCard key={task.id} task={task} />
+                  ))}
+                </div>
+              </SortableContext>
+
+              <button className="w-full mt-4 p-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600 flex items-center justify-center gap-2">
+                <PlusIcon className="h-5 w-5" />
+                Adicionar Tarefa
+              </button>
             </div>
           ))}
-
-          {/* Add Column Button */}
-          <div className="flex-shrink-0 w-80">
-            <button
-              onClick={addColumn}
-              className="w-full h-32 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors duration-200"
-            >
-              <PlusIcon className="w-6 h-6 mr-2" />
-              Adicionar Coluna
-            </button>
-          </div>
         </div>
-      </DragDropContext>
+      </DndContext>
     </div>
   );
 }
