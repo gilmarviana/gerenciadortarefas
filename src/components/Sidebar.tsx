@@ -13,6 +13,7 @@ import {
   ArrowRightOnRectangleIcon
 } from '@heroicons/react/24/outline';
 import { useAuth } from '@/hooks/useAuth';
+import { SystemLogo, ProfileDropdown } from './UserAvatar';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
@@ -26,7 +27,7 @@ const navigation = [
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
 
   const handleSignOut = async () => {
     await signOut();
@@ -35,7 +36,10 @@ export default function Sidebar() {
   return (
     <div className="flex flex-col w-64 bg-white border-r border-gray-200 h-screen">
       <div className="flex items-center justify-center h-16 border-b border-gray-200">
-        <h1 className="text-xl font-bold text-primary-600">TaskManager Pro</h1>
+        <div className="flex items-center space-x-3">
+          <SystemLogo size="sm" />
+          <h1 className="text-xl font-bold text-primary-600">TaskManager Pro</h1>
+        </div>
       </div>
       
       <nav className="flex-1 px-4 py-6 space-y-2">
@@ -55,13 +59,7 @@ export default function Sidebar() {
       </nav>
 
       <div className="p-4 border-t border-gray-200">
-        <button
-          onClick={handleSignOut}
-          className="flex items-center w-full px-3 py-2 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors duration-200"
-        >
-          <ArrowRightOnRectangleIcon className="w-5 h-5 mr-3" />
-          Sair
-        </button>
+        <ProfileDropdown user={user} onSignOut={handleSignOut} />
       </div>
     </div>
   );
