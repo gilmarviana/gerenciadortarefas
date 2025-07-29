@@ -1,4 +1,4 @@
-npm {
+{
   "name": "task-manager",
   "version": "0.1.0",
   "private": true,
@@ -24,6 +24,7 @@ npm {
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "reactflow": "^11.11.4",
+    "recharts": "^2.15.4",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
