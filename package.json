@@ -23,6 +23,8 @@
     "next": "15.4.4",
     "papaparse": "^5.5.3",
     "react": "19.1.0",
+    "react-dnd": "^16.0.1",
+    "react-dnd-html5-backend": "^16.0.1",
     "react-dom": "19.1.0",
     "reactflow": "^11.11.4",
     "recharts": "^2.15.4",

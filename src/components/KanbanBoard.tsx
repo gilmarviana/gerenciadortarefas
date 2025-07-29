@@ -1,101 +1,164 @@
-'use client';
+import React, { useState } from 'react';
+import { DndProvider, useDrag, useDrop } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
 
-import { useState, useEffect } from 'react';
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import {
-  useSortable,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { Task, TaskColumn } from '@/types';
-import { PlusIcon, EllipsisVerticalIcon } from '@heroicons/react/24/outline';
+const COLUMN_NAMES = [
+  { id: 'todo', name: 'To Do' },
+  { id: 'inprogress', name: 'In Progress' },
+  { id: 'review', name: 'In Review' },
+  { id: 'done', name: 'Done' },
+];
 
-// Componente TaskCard com dnd-kit
-function TaskCard({ task }: { task: Task }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id: task.id });
+const initialTasks = [
+  { id: '1', content: 'Optimize experience for mobile web', column: 'todo' },
+  { id: '2', content: 'Onboard workout options (OVO)', column: 'todo' },
+  { id: '3', content: 'Multi-dest search UI mobile/web', column: 'todo' },
+  { id: '4', content: 'Fast trip search', column: 'inprogress' },
+  { id: '5', content: 'Affiliate links integration - frontend', column: 'inprogress' },
+  { id: '6', content: 'Revise and streamline booking flow', column: 'review' },
+  { id: '7', content: 'Travel suggestion experiments', column: 'review' },
+  { id: '8', content: 'High voltage: Software bug fix', column: 'done' },
+  { id: '9', content: 'Web-store purchasing performance issue fix', column: 'done' },
+];
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
+function TaskCard({ task }) {
+  const [{ isDragging }, drag] = useDrag({
+    type: 'CARD',
+    item: { id: task.id },
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
+  });
+import React, { useState } from 'react';
+import { DndProvider, useDrag, useDrop } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'urgent': return 'border-red-500';
-      case 'high': return 'border-orange-500';
-      case 'medium': return 'border-yellow-500';
-      case 'low': return 'border-green-500';
-      default: return 'border-gray-300';
-    }
-  };
+type TaskType = {
+  id: string;
+  content: string;
+  column: string;
+};
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'bug': return 'bg-red-100 text-red-800';
-      case 'feature': return 'bg-blue-100 text-blue-800';
-      case 'improvement': return 'bg-green-100 text-green-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
+const COLUMN_NAMES = [
+  { id: 'todo', name: 'To Do' },
+  { id: 'inprogress', name: 'In Progress' },
+  { id: 'review', name: 'In Review' },
+  { id: 'done', name: 'Done' },
+];
 
+const initialTasks: TaskType[] = [
+  { id: '1', content: 'Optimize experience for mobile web', column: 'todo' },
+  { id: '2', content: 'Onboard workout options (OVO)', column: 'todo' },
+  { id: '3', content: 'Multi-dest search UI mobile/web', column: 'todo' },
+  { id: '4', content: 'Fast trip search', column: 'inprogress' },
+  { id: '5', content: 'Affiliate links integration - frontend', column: 'inprogress' },
+  { id: '6', content: 'Revise and streamline booking flow', column: 'review' },
+  { id: '7', content: 'Travel suggestion experiments', column: 'review' },
+  { id: '8', content: 'High voltage: Software bug fix', column: 'done' },
+  { id: '9', content: 'Web-store purchasing performance issue fix', column: 'done' },
+];
+
+interface DragItem {
+  id: string;
+}
+
+function TaskCard({ task }: { task: TaskType }) {
+  const [{ isDragging }, drag] = useDrag({
+    type: 'CARD',
+    item: { id: task.id },
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
+  });
   return (
     <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-      className={`bg-white rounded-lg border-l-4 ${getPriorityColor(task.priority)} p-4 mb-3 shadow-sm hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing`}
+      ref={drag}
+      style={{
+        opacity: isDragging ? 0.5 : 1,
+        background: '#fff',
+        borderRadius: 8,
+        marginBottom: 8,
+        padding: 16,
+        boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+        cursor: 'grab',
+      }}
     >
-      <div className="flex justify-between items-start mb-2">
-        <h4 className="font-medium text-gray-900 text-sm line-clamp-2">{task.title}</h4>
-        <button className="text-gray-400 hover:text-gray-600">
-          <EllipsisVerticalIcon className="h-4 w-4" />
-        </button>
-      </div>
-      
-      {task.description && (
-        <p className="text-gray-600 text-xs mb-3 line-clamp-3">{task.description}</p>
-      )}
-      
-      <div className="flex justify-between items-center">
-        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTypeColor(task.type)}`}>
-          {task.type}
-        </span>
-        {task.dueDate && (
-          <span className="text-xs text-gray-500">
-            {new Date(task.dueDate).toLocaleDateString('pt-BR')}
-          </span>
-        )}
-      </div>
+      {task.content}
     </div>
   );
 }
 
-// Componente principal do KanbanBoard
+function KanbanColumn({ column, tasks, moveTask }: { column: { id: string; name: string }, tasks: TaskType[], moveTask: (id: string, col: string) => void }) {
+  const [, drop] = useDrop({
+    accept: 'CARD',
+    drop: (item: DragItem) => moveTask(item.id, column.id),
+  });
+  return (
+    <div
+      ref={drop}
+      style={{
+        background: '#f3f4f6',
+        borderRadius: 8,
+        minWidth: 250,
+        minHeight: 400,
+        padding: 12,
+        margin: '0 12px',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      <div style={{ fontWeight: 600, fontSize: 18, marginBottom: 12 }}>{column.name}</div>
+      {tasks.map((task) => (
+        <TaskCard key={task.id} task={task} />
+      ))}
+    </div>
+  );
+}
+
 export default function KanbanBoard() {
+  const [tasks, setTasks] = useState<TaskType[]>(initialTasks);
+
+  const moveTask = (taskId: string, newColumn: string) => {
+    setTasks((prev) =>
+      prev.map((task) =>
+        task.id === taskId ? { ...task, column: newColumn } : task
+      )
+    );
+  };
+
+  return (
+    <DndProvider backend={HTML5Backend}>
+      <div style={{ display: 'flex', gap: 24, justifyContent: 'center' }}>
+        {COLUMN_NAMES.map((col) => (
+          <KanbanColumn
+            key={col.id}
+            column={col}
+            tasks={tasks.filter((t) => t.column === col.id)}
+            moveTask={moveTask}
+          />
+        ))}
+      </div>
+    </DndProvider>
+  );
+}
+    <DndProvider backend={HTML5Backend}>
+      <div style={{ display: 'flex', gap: 24, justifyContent: 'center' }}>
+        {COLUMN_NAMES.map((col) => (
+          <KanbanColumn
+            key={col.id}
+            column={col}
+            tasks={tasks.filter((t) => t.column === col.id)}
+            moveTask={moveTask}
+          />
+        ))}
+      </div>
+    </DndProvider>
+  );
+}
   const [columns, setColumns] = useState<TaskColumn[]>([
     {
       id: 'todo',
-      title: 'A Fazer',
+      name: 'A Fazer',
       tasks: [
         {
           id: '1',
@@ -123,7 +186,7 @@ export default function KanbanBoard() {
     },
     {
       id: 'in-progress',
-      title: 'Em Andamento',
+      name: 'Em Andamento',
       tasks: [
         {
           id: '3',
@@ -140,7 +203,7 @@ export default function KanbanBoard() {
     },
     {
       id: 'review',
-      title: 'Em Revisão',
+      name: 'Em Revisão',
       tasks: [
         {
           id: '4',
@@ -157,7 +220,7 @@ export default function KanbanBoard() {
     },
     {
       id: 'done',
-      title: 'Concluído',
+      name: 'Concluído',
       tasks: [
         {
           id: '5',
@@ -173,75 +236,88 @@ export default function KanbanBoard() {
       ]
     }
   ]);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
-  function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
-
-    if (!over) return;
-
-    const activeId = active.id;
-    const overId = over.id;
-
-    // Find which column contains the active item
-    const activeColumn = columns.find(col => 
-      col.tasks.some(task => task.id === activeId)
-    );
-    
-    // Find which column contains the over item
-    const overColumn = columns.find(col => 
-      col.tasks.some(task => task.id === overId) || col.id === overId
-    );
-
-    if (!activeColumn || !overColumn) return;
-
-    if (activeColumn.id !== overColumn.id) {
-      // Moving between columns
-      setColumns(prev => {
-        const newColumns = [...prev];
-        const activeColumnIndex = newColumns.findIndex(col => col.id === activeColumn.id);
-        const overColumnIndex = newColumns.findIndex(col => col.id === overColumn.id);
-        
-        const activeTask = newColumns[activeColumnIndex].tasks.find(task => task.id === activeId);
-        if (!activeTask) return prev;
-
-        // Remove from active column
-        newColumns[activeColumnIndex].tasks = newColumns[activeColumnIndex].tasks.filter(
-          task => task.id !== activeId
-        );
-
-        // Add to over column
-        newColumns[overColumnIndex].tasks.push({
-          ...activeTask,
-          status: overColumn.id as any
-        });
-
-        return newColumns;
-      });
-    } else {
-      // Moving within the same column
-      setColumns(prev => {
-        const newColumns = [...prev];
-        const columnIndex = newColumns.findIndex(col => col.id === activeColumn.id);
-        const oldIndex = newColumns[columnIndex].tasks.findIndex(task => task.id === activeId);
-        const newIndex = newColumns[columnIndex].tasks.findIndex(task => task.id === overId);
-
-        newColumns[columnIndex].tasks = arrayMove(
-          newColumns[columnIndex].tasks,
-          oldIndex,
-          newIndex
-        );
-
-        return newColumns;
-      });
+  const [columns, setColumns] = useState([
+    {
+      id: 'todo',
+      name: 'A Fazer',
+      tasks: [
+        {
+          id: '1',
+          title: 'Implementar autenticação',
+          description: 'Criar sistema de login e registro de usuários',
+          status: 'todo',
+          priority: 'high',
+          type: 'feature',
+          due_date: '2024-02-15',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        },
+        {
+          id: '2',
+          title: 'Corrigir bug no dashboard',
+          description: 'Gráficos não estão carregando corretamente',
+          status: 'todo',
+          priority: 'urgent',
+          type: 'bug',
+          due_date: '2024-02-10',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+      ]
+    },
+    {
+      id: 'in-progress',
+      name: 'Em Andamento',
+      tasks: [
+        {
+          id: '3',
+          title: 'Desenvolver API de relatórios',
+          description: 'Criar endpoints para geração de relatórios',
+          status: 'in-progress',
+          priority: 'medium',
+          type: 'feature',
+          due_date: '2024-02-20',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+      ]
+    },
+    {
+      id: 'review',
+      name: 'Em Revisão',
+      tasks: [
+        {
+          id: '4',
+          title: 'Otimizar performance',
+          description: 'Melhorar tempo de carregamento das páginas',
+          status: 'review',
+          priority: 'medium',
+          type: 'improvement',
+          due_date: '2024-02-18',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+      ]
+    },
+    {
+      id: 'done',
+      name: 'Concluído',
+      tasks: [
+        {
+          id: '5',
+          title: 'Setup inicial do projeto',
+          description: 'Configurar estrutura básica e dependências',
+          status: 'done',
+          priority: 'high',
+          type: 'feature',
+          due_date: '2024-02-05',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+      ]
     }
-  }
+  ]);
+
 
   return (
     <div className="h-full bg-gray-50 p-6">
@@ -252,41 +328,27 @@ export default function KanbanBoard() {
           Nova Tarefa
         </button>
       </div>
-
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {columns.map(column => (
-            <div key={column.id} className="bg-gray-100 rounded-lg p-4">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="font-semibold text-gray-800">{column.title}</h2>
-                <span className="bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded-full">
-                  {column.tasks.length}
-                </span>
-              </div>
-              
-              <SortableContext 
-                items={column.tasks.map(task => task.id)}
-                strategy={verticalListSortingStrategy}
-              >
-                <div className="space-y-3">
-                  {column.tasks.map(task => (
-                    <TaskCard key={task.id} task={task} />
-                  ))}
-                </div>
-              </SortableContext>
-
-              <button className="w-full mt-4 p-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600 flex items-center justify-center gap-2">
-                <PlusIcon className="h-5 w-5" />
-                Adicionar Tarefa
-              </button>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {columns.map(column => (
+          <div key={column.id} className="bg-gray-100 rounded-lg p-4">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="font-semibold text-gray-800">{column.name}</h2>
+              <span className="bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded-full">
+                {column.tasks.length}
+              </span>
             </div>
-          ))}
-        </div>
-      </DndContext>
+            <div className="space-y-3">
+              {column.tasks.map((task: Task) => (
+                <TaskCard key={task.id} task={task} />
+              ))}
+            </div>
+            <button className="w-full mt-4 p-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600 flex items-center justify-center gap-2">
+              <PlusIcon className="h-5 w-5" />
+              Adicionar Tarefa
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

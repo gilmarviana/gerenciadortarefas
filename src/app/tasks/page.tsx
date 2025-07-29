@@ -3,14 +3,14 @@
 import { useState, useEffect } from 'react';
 import { Project } from '@/types';
 import { createSupabaseClient } from '@/lib/supabase';
-import KanbanBoard from '@/components/KanbanBoard';
-import GanttChart from '@/components/GanttChart';
+// ...existing code...
+// ...existing code...
 import { ViewColumnsIcon, Bars3BottomLeftIcon } from '@heroicons/react/24/outline';
 
 export default function TasksPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>('');
-  const [viewMode, setViewMode] = useState<'kanban' | 'gantt'>('kanban');
+  const [viewMode, setViewMode] = useState<'gantt'>('gantt');
   const [loading, setLoading] = useState(true);
   const supabase = createSupabaseClient();
 
@@ -71,7 +71,7 @@ export default function TasksPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Tarefas</h1>
-          <p className="text-gray-600">Gerencie suas tarefas em quadros Kanban ou Gantt</p>
+          <p className="text-gray-600">Gerencie suas tarefas</p>
         </div>
 
         <div className="flex items-center space-x-4">
@@ -88,46 +88,11 @@ export default function TasksPage() {
             ))}
           </select>
 
-          {/* View Mode Toggle */}
-          <div className="flex rounded-lg border border-gray-300">
-            <button
-              onClick={() => setViewMode('kanban')}
-              className={`flex items-center px-3 py-2 rounded-l-lg transition-colors ${
-                viewMode === 'kanban'
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <ViewColumnsIcon className="w-4 h-4 mr-2" />
-              Kanban
-            </button>
-            <button
-              onClick={() => setViewMode('gantt')}
-              className={`flex items-center px-3 py-2 rounded-r-lg transition-colors ${
-                viewMode === 'gantt'
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <Bars3BottomLeftIcon className="w-4 h-4 mr-2" />
-              Gantt
-            </button>
-          </div>
+          {/* View Mode Toggle removido, apenas Gantt disponível */}
         </div>
       </div>
 
-      {/* Task Views */}
-      <div className="card p-0 h-[calc(100vh-280px)]">
-        {viewMode === 'kanban' ? (
-          <div className="p-4 h-full">
-            <KanbanBoard projectId={selectedProject} />
-          </div>
-        ) : (
-          <div className="p-4 h-full">
-            <GanttChart projectId={selectedProject} />
-          </div>
-        )}
-      </div>
+      {/* Task Views - Kanban removido */}
     </div>
   );
 }
