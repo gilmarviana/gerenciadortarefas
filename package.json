@@ -1,6 +1,10 @@
 {
 <<<<<<< HEAD
+<<<<<<< HEAD
   "name": "task-manager",
+=======
+  "name": "advanced-task-manager",
+>>>>>>> parent of f85ed2f (.)
 =======
   "name": "advanced-task-manager",
 >>>>>>> parent of f85ed2f (.)
@@ -21,6 +25,7 @@
     "@headlessui/react": "^1.7.17",
     "@heroicons/react": "^2.0.18",
 <<<<<<< HEAD
+<<<<<<< HEAD
     "@supabase/auth-helpers-nextjs": "^0.10.0",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.52.1",
@@ -39,6 +44,8 @@
     "styled-jsx": "^5.1.7",
     "xlsx": "^0.18.5"
 =======
+=======
+>>>>>>> parent of f85ed2f (.)
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "next": "^14.0.3",
@@ -53,6 +60,9 @@
     "framer-motion": "^10.16.5",
     "clsx": "^2.0.0",
     "uuid": "^9.0.1"
+<<<<<<< HEAD
+>>>>>>> parent of f85ed2f (.)
+=======
 >>>>>>> parent of f85ed2f (.)
   },
   "devDependencies": {
