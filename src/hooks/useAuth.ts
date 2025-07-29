@@ -52,14 +52,11 @@ export function useAuth() {
     return { error };
   };
 
-  const logout = signOut; // Alias para signOut
-
   return {
     user,
     loading,
     signIn,
     signUp,
     signOut,
-    logout,
   };
 }

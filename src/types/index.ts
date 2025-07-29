@@ -24,7 +24,7 @@ export interface Project {
   id: string;
   name: string;
   description?: string;
-  client_id?: string;
+  client_id: string;
   status: 'planning' | 'active' | 'on_hold' | 'completed' | 'cancelled';
   start_date?: string;
   end_date?: string;

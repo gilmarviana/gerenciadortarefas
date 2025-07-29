@@ -2,45 +2,24 @@
 
 import { useState, useEffect } from 'react';
 import { Project, Client } from '@/types';
-import { 
-  PlusIcon, 
-  PencilIcon, 
-  TrashIcon, 
-  FunnelIcon,
-  DocumentArrowDownIcon,
-  FolderIcon,
-  UserGroupIcon,
-  CurrencyDollarIcon,
-  ChartBarIcon
-} from '@heroicons/react/24/outline';
+import { createSupabaseClient } from '@/lib/supabase';
+import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import * as XLSX from 'xlsx';
-import { createSupabaseClient, skipUserTableValidation } from '@/lib/supabase';
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
-  const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [filters, setFilters] = useState({
-    status: '',
-    client_id: '',
-    search: '',
-    start_date: '',
-    end_date: '',
-  });
   const supabase = createSupabaseClient();
 
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     client_id: '',
-    status: 'planning' as 'planning' | 'active' | 'on_hold' | 'completed' | 'cancelled',
+    status: 'planning' as const,
     start_date: '',
     end_date: '',
     budget: '',
@@ -49,10 +28,6 @@ export default function ProjectsPage() {
   useEffect(() => {
     loadData();
   }, []);
-
-  useEffect(() => {
-    applyFilters();
-  }, [projects, filters]);
 
   const loadData = async () => {
     setLoading(true);
@@ -87,158 +62,39 @@ export default function ProjectsPage() {
     setLoading(false);
   };
 
-  const applyFilters = () => {
-    let filtered = [...projects];
-
-    if (filters.status) {
-      filtered = filtered.filter(project => project.status === filters.status);
-    }
-
-    if (filters.client_id) {
-      filtered = filtered.filter(project => project.client_id === filters.client_id);
-    }
-
-    if (filters.search) {
-      const search = filters.search.toLowerCase();
-      filtered = filtered.filter(project => 
-        project.name.toLowerCase().includes(search) ||
-        project.description?.toLowerCase().includes(search) ||
-        project.client?.name.toLowerCase().includes(search)
-      );
-    }
-
-    if (filters.start_date) {
-      filtered = filtered.filter(project => 
-        project.start_date && project.start_date >= filters.start_date
-      );
-    }
-
-    if (filters.end_date) {
-      filtered = filtered.filter(project => 
-        project.end_date && project.end_date <= filters.end_date
-      );
-    }
-
-    setFilteredProjects(filtered);
-  };
-
-  const updateFilter = (key: keyof typeof filters, value: string) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-  };
-
-  const clearFilters = () => {
-    setFilters({
-      status: '',
-      client_id: '',
-      search: '',
-      start_date: '',
-      end_date: '',
-    });
-  };
-
-  const exportToExcel = () => {
-    const exportData = filteredProjects.map(project => ({
-      'ID': project.id,
-      'Nome': project.name,
-      'Descrição': project.description || '',
-      'Cliente': project.client?.name || '',
-      'Status': getStatusLabel(project.status),
-      'Data Início': project.start_date ? format(new Date(project.start_date), 'dd/MM/yyyy') : '',
-      'Data Fim': project.end_date ? format(new Date(project.end_date), 'dd/MM/yyyy') : '',
-      'Orçamento': project.budget ? `R$ ${project.budget.toLocaleString('pt-BR')}` : '',
-      'Criado em': format(new Date(project.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Projetos');
-    XLSX.writeFile(wb, `projetos-${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
-  };
-
-  const getProjectStats = () => {
-    const total = filteredProjects.length;
-    const active = filteredProjects.filter(p => p.status === 'active').length;
-    const completed = filteredProjects.filter(p => p.status === 'completed').length;
-    const totalBudget = filteredProjects.reduce((sum, p) => sum + (p.budget || 0), 0);
-
-    return { total, active, completed, totalBudget };
-  };
-
-  const stats = getProjectStats();
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (submitting) return;
-    
-    setSubmitting(true);
-
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      alert('Usuário não encontrado. Faça login novamente.');
-      setSubmitting(false);
-      return;
-    }
+    if (!user) return;
 
-    try {
-      console.log('Usuário autenticado:', user);
+    const projectData = {
+      ...formData,
+      user_id: user.id,
+      budget: formData.budget ? parseFloat(formData.budget) : null,
+      start_date: formData.start_date || null,
+      end_date: formData.end_date || null,
+    };
 
-      // Verificar se usuário está autenticado
-      const userValid = skipUserTableValidation(user);
-      if (!userValid) {
-        alert('Erro ao verificar usuário. Tente novamente.');
-        return;
+    if (editingProject) {
+      const { error } = await supabase
+        .from('projects')
+        .update(projectData)
+        .eq('id', editingProject.id);
+
+      if (!error) {
+        loadData();
+        resetForm();
       }
+    } else {
+      const { error } = await supabase
+        .from('projects')
+        .insert(projectData);
 
-      const projectData = {
-        name: formData.name.trim(),
-        description: formData.description.trim() || null,
-        client_id: formData.client_id || null,
-        status: formData.status,
-        user_id: user.id,
-        budget: formData.budget ? parseFloat(formData.budget) : null,
-        start_date: formData.start_date || null,
-        end_date: formData.end_date || null,
-      };
-
-      console.log('Dados do projeto:', projectData);
-
-      if (editingProject) {
-        const { error } = await supabase
-          .from('projects')
-          .update(projectData)
-          .eq('id', editingProject.id);
-
-        if (error) {
-          console.error('Erro ao atualizar projeto:', error);
-          alert(`Erro ao atualizar projeto: ${error.message}`);
-          return;
-        }
-
-        alert('Projeto atualizado com sucesso!');
-      } else {
-        const { data, error } = await supabase
-          .from('projects')
-          .insert([projectData])
-          .select();
-
-        if (error) {
-          console.error('Erro ao criar projeto:', error);
-          alert(`Erro ao criar projeto: ${error.message}`);
-          return;
-        }
-
-        console.log('Projeto criado:', data);
-        alert('Projeto criado com sucesso!');
+      if (!error) {
+        loadData();
+        resetForm();
       }
-
-      loadData();
-      resetForm();
-    } catch (error) {
-      console.error('Erro geral:', error);
-      alert('Erro inesperado. Verifique o console para mais detalhes.');
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -262,7 +118,7 @@ export default function ProjectsPage() {
     setFormData({
       name: project.name,
       description: project.description || '',
-      client_id: project.client_id || '',
+      client_id: project.client_id,
       status: project.status,
       start_date: project.start_date || '',
       end_date: project.end_date || '',
@@ -302,281 +158,29 @@ export default function ProjectsPage() {
     }
   };
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'planning': return 'Planejamento';
-      case 'active': return 'Ativo';
-      case 'on_hold': return 'Em Espera';
-      case 'completed': return 'Concluído';
-      case 'cancelled': return 'Cancelado';
-      default: return status;
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Projetos</h1>
           <p className="text-gray-600">Gerencie seus projetos e organize o trabalho</p>
         </div>
 
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-          >
-            <FunnelIcon className="w-4 h-4 mr-2" />
-            Filtros
-          </button>
-
-          <button
-            onClick={exportToExcel}
-            className="flex items-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-          >
-            <DocumentArrowDownIcon className="w-4 h-4 mr-2" />
-            Exportar
-          </button>
-
-          <button
-            onClick={() => setShowForm(true)}
-            className="btn-primary flex items-center"
-          >
-            <PlusIcon className="w-4 h-4 mr-2" />
-            Novo Projeto
-          </button>
-        </div>
-      </div>
-
-      {/* Filters Panel */}
-      {showFilters && (
-        <div className="card">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Status
-              </label>
-              <select
-                value={filters.status}
-                onChange={(e) => updateFilter('status', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Todos os status</option>
-                <option value="planning">Planejamento</option>
-                <option value="active">Ativo</option>
-                <option value="on_hold">Em Espera</option>
-                <option value="completed">Concluído</option>
-                <option value="cancelled">Cancelado</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Cliente
-              </label>
-              <select
-                value={filters.client_id}
-                onChange={(e) => updateFilter('client_id', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Todos os clientes</option>
-                {clients.map(client => (
-                  <option key={client.id} value={client.id}>{client.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Buscar
-              </label>
-              <input
-                type="text"
-                value={filters.search}
-                onChange={(e) => updateFilter('search', e.target.value)}
-                placeholder="Nome, descrição..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Data Início (De)
-              </label>
-              <input
-                type="date"
-                value={filters.start_date}
-                onChange={(e) => updateFilter('start_date', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Data Fim (Até)
-              </label>
-              <input
-                type="date"
-                value={filters.end_date}
-                onChange={(e) => updateFilter('end_date', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-
-          <div className="mt-4 flex justify-between">
-            <button
-              onClick={clearFilters}
-              className="btn-secondary"
-            >
-              Limpar Filtros
-            </button>
-            <div className="text-sm text-gray-600">
-              {filteredProjects.length} de {projects.length} projetos
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="card">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <FolderIcon className="h-8 w-8 text-blue-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Total de Projetos</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <ChartBarIcon className="h-8 w-8 text-green-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Projetos Ativos</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.active}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <UserGroupIcon className="h-8 w-8 text-purple-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Concluídos</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.completed}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <CurrencyDollarIcon className="h-8 w-8 text-orange-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Valor Total</p>
-              <p className="text-2xl font-bold text-gray-900">
-                R$ {stats.totalBudget.toLocaleString('pt-BR')}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Projects Table */}
-      <div className="card p-0">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Projeto
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Cliente
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Período
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Orçamento
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Ações
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredProjects.map((project) => (
-                <tr key={project.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4">
-                    <div className="text-sm font-medium text-gray-900">{project.name}</div>
-                    {project.description && (
-                      <div className="text-sm text-gray-500 truncate max-w-xs">
-                        {project.description}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    {project.client?.name || '-'}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(project.status)}`}>
-                      {getStatusLabel(project.status)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    <div>
-                      {project.start_date && (
-                        <div>Início: {format(new Date(project.start_date), 'dd/MM/yyyy')}</div>
-                      )}
-                      {project.end_date && (
-                        <div>Fim: {format(new Date(project.end_date), 'dd/MM/yyyy')}</div>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    {project.budget ? `R$ ${project.budget.toLocaleString('pt-BR')}` : '-'}
-                  </td>
-                  <td className="px-6 py-4 text-sm font-medium space-x-2">
-                    <button
-                      onClick={() => editProject(project)}
-                      className="text-blue-600 hover:text-blue-900"
-                    >
-                      <PencilIcon className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => deleteProject(project.id)}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      <TrashIcon className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <button
+          onClick={() => setShowForm(true)}
+          className="btn-primary flex items-center"
+        >
+          <PlusIcon className="w-4 h-4 mr-2" />
+          Novo Projeto
+        </button>
       </div>
 
       {/* Project Form Modal */}
@@ -597,7 +201,7 @@ export default function ProjectsPage() {
                   required
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                 />
               </div>
 
@@ -609,7 +213,7 @@ export default function ProjectsPage() {
                   value={formData.description}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                 />
               </div>
 
@@ -620,7 +224,7 @@ export default function ProjectsPage() {
                 <select
                   value={formData.client_id}
                   onChange={(e) => setFormData(prev => ({ ...prev, client_id: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                 >
                   <option value="">Selecione um cliente</option>
                   {clients.map(client => (
@@ -636,7 +240,7 @@ export default function ProjectsPage() {
                 <select
                   value={formData.status}
                   onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as any }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                 >
                   <option value="planning">Planejamento</option>
                   <option value="active">Ativo</option>
@@ -655,7 +259,7 @@ export default function ProjectsPage() {
                     type="date"
                     value={formData.start_date}
                     onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                   />
                 </div>
 
@@ -667,7 +271,7 @@ export default function ProjectsPage() {
                     type="date"
                     value={formData.end_date}
                     onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                   />
                 </div>
               </div>
@@ -681,36 +285,119 @@ export default function ProjectsPage() {
                   step="0.01"
                   value={formData.budget}
                   onChange={(e) => setFormData(prev => ({ ...prev, budget: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                 />
               </div>
 
               <div className="flex space-x-3 pt-4">
-                <button 
-                  type="submit" 
-                  disabled={submitting}
-                  className="flex-1 btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {submitting ? (
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      {editingProject ? 'Atualizando...' : 'Criando...'}
-                    </div>
-                  ) : (
-                    editingProject ? 'Atualizar' : 'Criar'
-                  )}
+                <button type="submit" className="flex-1 btn-primary">
+                  {editingProject ? 'Atualizar' : 'Criar'}
                 </button>
                 <button
                   type="button"
                   onClick={resetForm}
-                  disabled={submitting}
-                  className="flex-1 btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 btn-secondary"
                 >
                   Cancelar
                 </button>
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* Projects Grid */}
+      {projects.length === 0 ? (
+        <div className="text-center py-12">
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum projeto encontrado</h3>
+          <p className="text-gray-600 mb-4">Crie seu primeiro projeto para começar a organizar o trabalho.</p>
+          <button onClick={() => setShowForm(true)} className="btn-primary">
+            Criar Projeto
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {projects.map((project) => (
+            <div key={project.id} className="card hover:shadow-lg transition-shadow duration-200">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1">
+                  <h3 className="text-lg font-medium text-gray-900 mb-1">
+                    {project.name}
+                  </h3>
+                  {project.description && (
+                    <p className="text-sm text-gray-600 mb-2">
+                      {project.description}
+                    </p>
+                  )}
+                  {project.client && (
+                    <p className="text-xs text-gray-500 mb-2">
+                      Cliente: {project.client.name}
+                    </p>
+                  )}
+                </div>
+                
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => editProject(project)}
+                    className="p-1 text-gray-400 hover:text-blue-600"
+                  >
+                    <PencilIcon className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => deleteProject(project.id)}
+                    className="p-1 text-gray-400 hover:text-red-600"
+                  >
+                    <TrashIcon className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-500">Status:</span>
+                  <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(project.status)}`}>
+                    {project.status}
+                  </span>
+                </div>
+
+                {project.budget && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500">Orçamento:</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      R$ {project.budget.toLocaleString('pt-BR')}
+                    </span>
+                  </div>
+                )}
+
+                {project.start_date && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500">Início:</span>
+                    <span className="text-sm text-gray-900">
+                      {format(new Date(project.start_date), 'dd/MM/yyyy')}
+                    </span>
+                  </div>
+                )}
+
+                {project.end_date && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500">Fim:</span>
+                    <span className="text-sm text-gray-900">
+                      {format(new Date(project.end_date), 'dd/MM/yyyy')}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <a
+                  href={`/tasks?project=${project.id}`}
+                  className="w-full btn-primary block text-center"
+                >
+                  Ver Tarefas
+                </a>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
