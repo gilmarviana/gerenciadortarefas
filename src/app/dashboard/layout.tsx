@@ -1,14 +1,17 @@
-'use client';
 
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import DashboardHome from './components/DashboardHome';
-import TasksView from './components/TasksView';
-import ProjectsView from './components/ProjectsView';
-import ClientsView from './components/ClientsView';
-import ReportsView from './components/ReportsView';
-import FlowchartsView from './components/FlowchartsView';
-import SettingsView from './components/SettingsView';
+"use client";
+
+import { useState, useEffect } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import DashboardHome from "./components/DashboardHome";
+import TasksView from "./components/TasksView";
+import ProjectsView from "./components/ProjectsView";
+import ClientsView from "./components/ClientsView";
+import ReportsView from "./components/ReportsView";
+import FlowchartsView from "./components/FlowchartsView";
+import SettingsView from "./components/SettingsView";
+import KanbanView from "./components/KanbanView";
+import GanttView from "./components/GanttView";
 import { 
   HomeIcon,
   ClipboardDocumentListIcon,
@@ -21,7 +24,9 @@ import {
   Bars3Icon,
   XMarkIcon,
   ChevronLeftIcon,
-  ChevronRightIcon
+  ChevronRightIcon,
+  Squares2X2Icon,
+  CalendarDaysIcon
 } from '@heroicons/react/24/outline';
 
 interface DashboardLayoutProps {
@@ -38,6 +43,8 @@ type NavigationItem = {
 const navigation: NavigationItem[] = [
   { id: 'home', name: 'Dashboard', icon: HomeIcon, component: DashboardHome },
   { id: 'tasks', name: 'Tarefas', icon: ClipboardDocumentListIcon, component: TasksView },
+  { id: 'kanban', name: 'Kanban', icon: Squares2X2Icon, component: KanbanView },
+  { id: 'gantt', name: 'Gantt', icon: CalendarDaysIcon, component: GanttView },
   { id: 'projects', name: 'Projetos', icon: FolderIcon, component: ProjectsView },
   { id: 'clients', name: 'Clientes', icon: UserGroupIcon, component: ClientsView },
   { id: 'reports', name: 'Relatórios', icon: ChartBarIcon, component: ReportsView },
