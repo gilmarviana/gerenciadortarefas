@@ -32,6 +32,7 @@ type Column = {
   name: string;
   icon?: React.ReactNode;
   tasks: Task[];
+  status?: 'aberto' | 'concluido';
   count?: number;
   time?: string;
   points?: number;
@@ -42,9 +43,7 @@ const initialColumns: Column[] = [
     id: 'todo',
     name: 'Inbox',
     icon: <UserIcon className="w-4 h-4 text-gray-400" />,
-    count: 9,
-    time: '729h',
-    points: 17,
+    status: 'aberto',
     tasks: [
       { id: '1', content: 'Task Example 01', tag: 'CA', tagColor: 'bg-red-200', assignee: 'R', totalTime: 0, dueDate: '', flag: true, progress: 0, type: 'Bug', description: 'Corrigir erro de login', urgent: true, subtasks: [
         { id: '1-1', title: 'Reproduzir bug', done: true },
@@ -67,9 +66,7 @@ const initialColumns: Column[] = [
     id: 'inprogress',
     name: 'In progress',
     icon: <UserIcon className="w-4 h-4 text-gray-400" />,
-    count: 7,
-    time: '223h',
-    points: 20,
+    status: 'aberto',
     tasks: [
       { id: '6', content: 'Task Example 03', tag: 'CA', tagColor: 'bg-red-200', assignee: 'CA', totalTime: 2340, dueDate: '', flag: false, progress: 29, type: 'Bug', description: 'Corrigir tooltip', urgent: false, subtasks: [] },
       { id: '7', content: 'Task Example 04', tag: 'NZ', tagColor: 'bg-blue-200', assignee: 'NZ', totalTime: 0, dueDate: '25 Nov', flag: true, progress: 0, type: 'Task', description: 'Testar integração', urgent: true, subtasks: [
@@ -82,9 +79,7 @@ const initialColumns: Column[] = [
     id: 'review',
     name: 'In approval',
     icon: <UserIcon className="w-4 h-4 text-gray-400" />,
-    count: 2,
-    time: '40m',
-    points: 14,
+    status: 'aberto',
     tasks: [
       { id: '8', content: 'Task Example 05', tag: 'AG', tagColor: 'bg-orange-200', assignee: 'AG', totalTime: 18600, dueDate: '18 Nov', flag: false, progress: 90, type: 'Feature', description: 'Nova tela de relatórios', urgent: false, subtasks: [] },
       { id: '9', content: 'Task Example 06', tag: 'NZ', tagColor: 'bg-blue-200', assignee: 'NZ', totalTime: 6000, dueDate: '', flag: false, progress: 40, type: 'Task', description: 'Aprovar orçamento', urgent: false, subtasks: [] },
@@ -92,11 +87,9 @@ const initialColumns: Column[] = [
   },
   {
     id: 'done',
-    name: 'Delivered',
+    name: 'Concluído',
     icon: <UserIcon className="w-4 h-4 text-gray-400" />,
-    count: 3,
-    time: '953h',
-    points: 5,
+    status: 'concluido',
     tasks: [
       { id: '10', content: 'Calendar - Client', tag: 'NZ', tagColor: 'bg-blue-200', assignee: 'NZ', totalTime: 10800, dueDate: '', flag: false, progress: 100, type: 'Task', description: 'Reunião com cliente', urgent: false, subtasks: [] },
     ],
@@ -107,11 +100,12 @@ interface KanbanColumnProps {
   column: Column;
   activeId: string | null;
   onColumnDrop: (columnId: string) => void;
+  readOnly?: boolean;
 }
 
 import { useRef as useReactRef, useState as useReactState, useEffect as useReactEffect } from 'react';
 
-function KanbanColumn({ column, activeId, onColumnDrop }: KanbanColumnProps) {
+function KanbanColumn({ column, activeId, onColumnDrop, readOnly }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
   const [menuOpen, setMenuOpen] = useReactState(false);
   const menuRef = useReactRef<HTMLDivElement | null>(null);
@@ -127,6 +121,13 @@ function KanbanColumn({ column, activeId, onColumnDrop }: KanbanColumnProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [menuOpen]);
 
+  // Calcula dinamicamente o total de horas e quantidade de cards
+  const totalSeconds = column.tasks.reduce((acc, t) => acc + (t.totalTime || 0), 0);
+  const totalHours = Math.floor(totalSeconds / 3600);
+  const totalMinutes = Math.floor((totalSeconds % 3600) / 60);
+  const formattedTime = totalHours > 0 ? `${totalHours}h${totalMinutes > 0 ? ' ' + totalMinutes + 'm' : ''}` : `${totalMinutes}m`;
+  const cardCount = column.tasks.length;
+
   return (
     <div
       ref={setNodeRef}
@@ -138,11 +139,11 @@ function KanbanColumn({ column, activeId, onColumnDrop }: KanbanColumnProps) {
         <div className="flex items-center gap-2">
           {column.icon}
           <span className="font-semibold text-gray-700 text-base">{column.name}</span>
-          <span className="ml-2 text-xs text-gray-400 font-medium">{column.count}</span>
+          <span className="ml-2 text-xs text-gray-400 font-medium">{cardCount}</span>
         </div>
         <div className="flex items-center gap-2 relative">
-          <span className="text-xs text-gray-400">{column.time}</span>
-          <span className="text-xs text-gray-400">{column.points}pts</span>
+          <span className="text-xs text-gray-400">{formattedTime}</span>
+          <span className="text-xs text-gray-400">{cardCount} cards</span>
           <div
             className="flex items-center justify-center w-8 h-8 rounded hover:bg-gray-100 transition cursor-pointer select-none"
             onClick={e => { e.stopPropagation(); e.preventDefault(); setMenuOpen((v) => !v); }}
@@ -157,9 +158,8 @@ function KanbanColumn({ column, activeId, onColumnDrop }: KanbanColumnProps) {
           {menuOpen && (
             <div ref={menuRef} className="absolute right-0 top-10 w-48 bg-white border border-gray-200 rounded-xl shadow-lg z-50 animate-fade-in">
               <ul className="py-2 text-sm text-gray-700">
-                <li><button className="flex items-center w-full px-4 py-2 hover:bg-gray-50"><ArrowUpIcon className="w-4 h-4 mr-2 text-gray-500" />Mover para início</button></li>
-                <li><button className="flex items-center w-full px-4 py-2 hover:bg-gray-50"><ArrowPathIcon className="w-4 h-4 mr-2 text-gray-500" />Renomear coluna</button></li>
-                <li><button className="flex items-center w-full px-4 py-2 hover:bg-gray-50"><DocumentDuplicateIcon className="w-4 h-4 mr-2 text-gray-500" />Duplicar coluna</button></li>
+                <li><button className="flex items-center w-full px-4 py-2 hover:bg-gray-50"><ArrowPathIcon className="w-4 h-4 mr-2 text-gray-500" />Editar</button></li>
+                <li><button className="flex items-center w-full px-4 py-2 hover:bg-gray-50"><ChatBubbleLeftRightIcon className="w-4 h-4 mr-2 text-gray-500" />Editar</button></li>
                 <li><button className="flex items-center w-full px-4 py-2 hover:bg-gray-50"><TrashIcon className="w-4 h-4 mr-2 text-red-500" />Excluir coluna</button></li>
               </ul>
             </div>
@@ -175,9 +175,11 @@ function KanbanColumn({ column, activeId, onColumnDrop }: KanbanColumnProps) {
         </div>
       </SortableContext>
       {/* Rodapé da coluna */}
-      <button className="w-full py-2 border-t border-gray-100 text-blue-600 hover:bg-blue-50 font-semibold text-sm flex items-center justify-center gap-2">
-        + Add task
-      </button>
+      {!readOnly && (
+        <button className="w-full py-2 border-t border-gray-100 text-blue-600 hover:bg-blue-50 font-semibold text-sm flex items-center justify-center gap-2">
+          + Add task
+        </button>
+      )}
     </div>
   );
 }
@@ -186,6 +188,7 @@ interface KanbanTaskProps {
   task: Task;
   columnId: string;
   isDragging: boolean;
+  readOnly?: boolean;
 }
 
 import { useRef } from 'react';
@@ -199,7 +202,7 @@ function formatTime(seconds: number) {
 
 // ...existing code...
 
-function KanbanTask({ task, columnId, isDragging }: KanbanTaskProps) {
+function KanbanTask({ task, columnId, isDragging, readOnly }: KanbanTaskProps) {
   const { attributes, listeners, setNodeRef, isDragging: isDrag } = useDraggable({
     id: task.id,
     data: { columnId },
@@ -250,7 +253,8 @@ function KanbanTask({ task, columnId, isDragging }: KanbanTaskProps) {
             onClick={handlePlayPause}
             className={`rounded-full p-1 border ${running ? 'border-red-400 bg-red-50' : 'border-green-400 bg-green-50'} hover:bg-blue-100 transition shadow pointer-events-auto`}
             title={running ? 'Pausar' : 'Iniciar'}
-            style={{ cursor: 'pointer' }}
+            style={{ cursor: readOnly ? 'not-allowed' : 'pointer' }}
+            disabled={readOnly}
           >
             {running ? (
               <PauseIcon className="w-4 h-4 text-red-500" />
@@ -260,24 +264,24 @@ function KanbanTask({ task, columnId, isDragging }: KanbanTaskProps) {
           </button>
         </div>
         <div className="absolute right-2 top-0 pointer-events-auto">
-          <div
-            className="flex items-center justify-center w-8 h-8 rounded hover:bg-gray-100 transition cursor-pointer select-none"
-            onClick={e => { e.stopPropagation(); e.preventDefault(); setMenuOpen((v) => !v); }}
-            onMouseDown={e => { e.stopPropagation(); e.preventDefault(); }}
-            tabIndex={0}
-            role="button"
-            aria-label="Mais opções do card"
-            style={{ userSelect: 'none' }}
-          >
-            <Cog6ToothIcon className="w-5 h-5 text-gray-300 hover:text-gray-500 pointer-events-none" title="Configurações do card" />
-          </div>
-          {menuOpen && (
+          {!readOnly && (
+            <div
+              className="flex items-center justify-center w-8 h-8 rounded hover:bg-gray-100 transition cursor-pointer select-none"
+              onClick={e => { e.stopPropagation(); e.preventDefault(); setMenuOpen((v) => !v); }}
+              onMouseDown={e => { e.stopPropagation(); e.preventDefault(); }}
+              tabIndex={0}
+              role="button"
+              aria-label="Mais opções do card"
+              style={{ userSelect: 'none' }}
+            >
+              <Cog6ToothIcon className="w-5 h-5 text-gray-300 hover:text-gray-500 pointer-events-none" title="Configurações do card" />
+            </div>
+          )}
+          {menuOpen && !readOnly && (
             <div ref={menuRef} className="absolute right-0 top-10 w-56 bg-white border border-gray-200 rounded-xl shadow-lg z-50 animate-fade-in">
               <ul className="py-2 text-sm text-gray-700">
                 <li><button className="flex items-center w-full px-4 py-2 hover:bg-gray-50"><ArrowUpIcon className="w-4 h-4 mr-2 text-gray-500" />Enviar para topo</button></li>
-                <li><button className="flex items-center w-full px-4 py-2 hover:bg-gray-50"><ArrowPathIcon className="w-4 h-4 mr-2 text-gray-500" />Mover de quadro</button></li>
                 <li><button className="flex items-center w-full px-4 py-2 hover:bg-gray-50"><DocumentDuplicateIcon className="w-4 h-4 mr-2 text-gray-500" />Clonar</button></li>
-                <li><button className="flex items-center w-full px-4 py-2 hover:bg-gray-50"><ChatBubbleLeftRightIcon className="w-4 h-4 mr-2 text-gray-500" />Abrir comentários</button></li>
                 <li><button className="flex items-center w-full px-4 py-2 hover:bg-gray-50"><ShareIcon className="w-4 h-4 mr-2 text-gray-500" />Compartilhar</button></li>
                 <li><button className="flex items-center w-full px-4 py-2 hover:bg-gray-50"><ArrowPathIcon className="w-4 h-4 mr-2 text-gray-500" />Converter em subtarefa</button></li>
                 <li><button className="flex items-center w-full px-4 py-2 hover:bg-gray-50"><CheckIcon className="w-4 h-4 mr-2 text-gray-500" />Entregar tarefa</button></li>
@@ -304,31 +308,6 @@ function KanbanTask({ task, columnId, isDragging }: KanbanTaskProps) {
           {task.urgent && <FlagIcon className="w-4 h-4 text-red-500 ml-1" title="Urgente" />}
         <span className="ml-auto flex items-center gap-1 relative">
           <span className="text-xs text-gray-400">#{task.id}</span>
-          <div
-            className="flex items-center justify-center w-8 h-8 rounded hover:bg-gray-100 transition cursor-pointer ml-1 select-none"
-            onClick={e => { e.stopPropagation(); e.preventDefault(); setMenuOpen((v) => !v); }}
-            onMouseDown={e => { e.stopPropagation(); e.preventDefault(); }}
-            tabIndex={0}
-            role="button"
-            aria-label="Mais opções"
-            style={{ userSelect: 'none' }}
-          >
-            <Cog6ToothIcon className="w-5 h-5 text-gray-300 hover:text-gray-500 pointer-events-none" title="Configurações" />
-          </div>
-          {menuOpen && (
-            <div ref={menuRef} className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-lg z-50 animate-fade-in">
-              <ul className="py-2 text-sm text-gray-700">
-                <li><button className="flex items-center w-full px-4 py-2 hover:bg-gray-50"><ArrowUpIcon className="w-4 h-4 mr-2 text-gray-500" />Enviar para topo</button></li>
-                <li><button className="flex items-center w-full px-4 py-2 hover:bg-gray-50"><ArrowPathIcon className="w-4 h-4 mr-2 text-gray-500" />Mover de quadro</button></li>
-                <li><button className="flex items-center w-full px-4 py-2 hover:bg-gray-50"><DocumentDuplicateIcon className="w-4 h-4 mr-2 text-gray-500" />Clonar</button></li>
-                <li><button className="flex items-center w-full px-4 py-2 hover:bg-gray-50"><ChatBubbleLeftRightIcon className="w-4 h-4 mr-2 text-gray-500" />Abrir comentários</button></li>
-                <li><button className="flex items-center w-full px-4 py-2 hover:bg-gray-50"><ShareIcon className="w-4 h-4 mr-2 text-gray-500" />Compartilhar</button></li>
-                <li><button className="flex items-center w-full px-4 py-2 hover:bg-gray-50"><ArrowPathIcon className="w-4 h-4 mr-2 text-gray-500" />Converter em subtarefa</button></li>
-                <li><button className="flex items-center w-full px-4 py-2 hover:bg-gray-50"><CheckIcon className="w-4 h-4 mr-2 text-gray-500" />Entregar tarefa</button></li>
-                <li><button className="flex items-center w-full px-4 py-2 hover:bg-red-50 text-red-600"><TrashIcon className="w-4 h-4 mr-2 text-red-500" />Apagar</button></li>
-              </ul>
-            </div>
-          )}
         </span>
         </div>
         {/* Título */}
@@ -342,7 +321,7 @@ function KanbanTask({ task, columnId, isDragging }: KanbanTaskProps) {
           <ul className="mb-1 mt-1 space-y-1">
             {task.subtasks.map((sub) => (
               <li key={sub.id} className="flex items-center gap-2 text-xs text-gray-600">
-                <input type="checkbox" checked={sub.done} readOnly className="accent-blue-500" />
+                <input type="checkbox" checked={sub.done} readOnly className="accent-blue-500" disabled={readOnly} />
                 <span className={sub.done ? 'line-through text-gray-400' : ''}>{sub.title}</span>
               </li>
             ))}
@@ -444,9 +423,31 @@ export default function KanbanView() {
     setColumnOver(columnId);
   };
 
+  // Adiciona novo grupo
+  const handleAddGroup = () => {
+    const name = prompt('Nome do novo grupo:');
+    if (!name) return;
+    setColumns(cols => ([
+      ...cols,
+      {
+        id: `col-${Date.now()}`,
+        name,
+        icon: <UserIcon className="w-4 h-4 text-gray-400" />,
+        status: 'aberto',
+        tasks: [],
+      },
+    ]));
+  };
+
   return (
     <div className="overflow-x-auto">
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Quadro Kanban</h1>
+      <button
+        className="mb-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold"
+        onClick={handleAddGroup}
+      >
+        + Novo grupo
+      </button>
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -456,7 +457,13 @@ export default function KanbanView() {
       >
         <div className="flex gap-6 min-w-[900px]">
           {columns.map((col) => (
-            <KanbanColumn key={col.id} column={col} activeId={activeId} onColumnDrop={handleColumnDrop} />
+            <KanbanColumn
+              key={col.id}
+              column={col}
+              activeId={activeId}
+              onColumnDrop={handleColumnDrop}
+              readOnly={col.status === 'concluido'}
+            />
           ))}
         </div>
       </DndContext>
