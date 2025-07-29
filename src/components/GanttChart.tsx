@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Task, GanttTask } from '@/types';
 import { createSupabaseClient } from '@/lib/supabase';
 import { format, addDays, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns';
@@ -16,7 +16,25 @@ export default function GanttChart({ projectId }: GanttChartProps) {
   const [viewStart, setViewStart] = useState(startOfWeek(new Date()));
   const [viewEnd, setViewEnd] = useState(endOfWeek(addDays(new Date(), 30)));
   const [loading, setLoading] = useState(true);
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const supabase = createSupabaseClient();
+  // Fecha menu ao clicar fora
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpenId(null);
+      }
+    }
+    if (menuOpenId) {
+      document.addEventListener('mousedown', handleClickOutside);
+    } else {
+      document.removeEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [menuOpenId]);
 
   useEffect(() => {
     loadTasks();
@@ -174,10 +192,47 @@ export default function GanttChart({ projectId }: GanttChartProps) {
         {/* Tasks */}
         <div className="relative">
           {ganttTasks.map((task, index) => (
-            <div key={task.id} className="flex border-b border-gray-100 hover:bg-gray-50">
-              <div className="w-64 p-3 border-r border-gray-200">
-                <div className="text-sm font-medium text-gray-900 truncate">
-                  {task.name}
+            <div key={task.id} className="flex border-b border-gray-100 hover:bg-gray-50" ref={menuOpenId === task.id ? menuRef : undefined}>
+              <div className="w-64 p-3 border-r border-gray-200 flex flex-col justify-center">
+                <div className="flex items-center justify-between">
+                  {/* Play button */}
+                  <div
+                    className="flex items-center justify-center mr-2 select-none"
+                    style={{ width: 28, height: 28, borderRadius: 6, cursor: 'pointer' }}
+                    tabIndex={-1}
+                    onMouseDown={e => e.stopPropagation()}
+                    onClick={e => { e.stopPropagation(); /* ação do play aqui */ }}
+                  >
+                    {/* Heroicons Play Icon SVG */}
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-green-600">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653v12.694c0 1.07 1.14 1.735 2.084 1.2l10.385-6.347a1.25 1.25 0 000-2.4L7.334 4.453C6.39 3.918 5.25 4.583 5.25 5.653z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-gray-900 truncate">{task.name}</div>
+                  </div>
+                  {/* Menu button (três pontinhos) */}
+                  <div
+                    className="relative flex items-center justify-center ml-2 select-none"
+                    style={{ width: 28, height: 28, borderRadius: 6, cursor: 'pointer' }}
+                    tabIndex={-1}
+                    onMouseDown={e => e.stopPropagation()}
+                    onClick={e => { e.stopPropagation(); setMenuOpenId(menuOpenId === task.id ? null : task.id); }}
+                  >
+                    {/* Heroicons Ellipsis Vertical */}
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-gray-500">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zm0 6a.75.75 0 110-1.5.75.75 0 010 1.5zm0 6a.75.75 0 110-1.5.75.75 0 010 1.5z" />
+                    </svg>
+                    {/* Menu dropdown */}
+                    {menuOpenId === task.id && (
+                      <div className="absolute right-0 top-8 z-30 w-40 bg-white border border-gray-200 rounded shadow-lg py-1">
+                        <button className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Editar</button>
+                        <button className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Mover</button>
+                        <button className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Duplicar</button>
+                        <button className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100">Excluir</button>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 {task.assignee && (
                   <div className="text-xs text-gray-500 mt-1 truncate">
