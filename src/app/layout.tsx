@@ -5,7 +5,7 @@ import { Inter } from 'next/font/google';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'TaskManager Pro',
+  title: 'GDO',
   description: 'Sistema avançado de gerenciamento de tarefas e projetos',
   icons: {
     icon: '/favicon.svg',

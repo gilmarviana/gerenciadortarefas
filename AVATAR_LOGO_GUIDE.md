@@ -1,8 +1,8 @@
-# 🎨 Sistema de Avatar e Logo - TaskManager Pro
+# 🎨 Sistema de Avatar e Logo - GDO
 
 ## 📋 Resumo do que foi criado
 
-Implementei um sistema completo de avatares e logos para o TaskManager Pro com todos os componentes necessários para exibição do perfil do usuário e branding do sistema.
+Implementei um sistema completo de avatares e logos para o GDO com todos os componentes necessários para exibição do perfil do usuário e branding do sistema.
 
 ## 🎯 Componentes Criados
 

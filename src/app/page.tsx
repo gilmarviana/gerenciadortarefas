@@ -32,7 +32,7 @@ export default function Home() {
             <SystemLogo size="xl" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900">
-            TaskManager Pro
+            GDO
           </h1>
           <p className="mt-2 text-sm text-gray-600">
             Sistema avançado de gerenciamento de tarefas e projetos

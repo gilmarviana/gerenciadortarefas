@@ -119,7 +119,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <span className="text-white font-bold text-lg">T</span>
               </div>
               {sidebarExpanded && (
-                <span className="ml-3 text-xl font-bold text-gray-900">TaskManager</span>
+                <span className="ml-3 text-xl font-bold text-gray-900">GDO</span>
               )}
             </div>
             <button
@@ -192,7 +192,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                     <span className="text-white font-bold text-lg">T</span>
                   </div>
-                  <span className="ml-3 text-xl font-bold text-gray-900">TaskManager</span>
+                  <span className="ml-3 text-xl font-bold text-gray-900">GDO</span>
                 </div>
                 <nav className="px-2 space-y-1">
                   {navigation.map((item) => {

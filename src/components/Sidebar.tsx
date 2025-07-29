@@ -38,7 +38,7 @@ export default function Sidebar() {
       <div className="flex items-center justify-center h-16 border-b border-gray-200">
         <div className="flex items-center space-x-3">
           <SystemLogo size="sm" />
-          <h1 className="text-xl font-bold text-primary-600">TaskManager Pro</h1>
+          <h1 className="text-xl font-bold text-primary-600">GDO</h1>
         </div>
       </div>
       

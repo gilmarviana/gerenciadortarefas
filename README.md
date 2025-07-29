@@ -1,4 +1,4 @@
-# TaskManager Pro
+# GDO
 
 Sistema avançado de gerenciamento de tarefas e projetos desenvolvido com React, Next.js, Supabase e Tailwind CSS.
 
@@ -231,4 +231,4 @@ Para suporte ou dúvidas sobre o projeto, abra uma issue no GitHub ou entre em c
 
 ---
 
-**TaskManager Pro** - Sistema completo de gerenciamento de projetos e tarefas com tecnologias modernas.
+**GDO** - Sistema completo de gerenciamento de projetos e tarefas com tecnologias modernas.
